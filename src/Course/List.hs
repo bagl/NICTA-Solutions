@@ -143,9 +143,7 @@ filter ::
   (a -> Bool)
   -> List a
   -> List a
-filter p = foldRight f Nil
-  where f a l | p a       = a :. l
-              | otherwise = l
+filter p = foldRight (\a -> bool id (a:.) $ p a) Nil
 
 -- | Append two lists to a new list.
 --
