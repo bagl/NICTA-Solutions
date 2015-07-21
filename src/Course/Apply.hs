@@ -35,8 +35,18 @@ instance Apply Id where
     Id (a -> b)
     -> Id a
     -> Id b
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance Id"
+  Id f <*> Id a = Id $ f a
+  -- Proof.
+  --    (.) <$> Id a <*> Id b <*> Id c
+  -- == Id (a .) <*> Id b <*> Id c
+  -- == Id (a . b) <*> Id c
+  -- == Id $ (a . b) c
+  -- == Id $ a (b c)
+  --
+  --    Id a <*> (Id b <*> Id c)
+  -- == Id a <*> Id (b c)
+  -- == Id $ a (b c)
+  -- Qed.
 
 -- | Implement @Apply@ instance for @List@.
 --
