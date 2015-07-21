@@ -178,7 +178,7 @@ infixr 5 ++
 flatten ::
   List (List a)
   -> List a
-flatten = foldRight (++) Nil -- TODO: slow?
+flatten = foldRight (++) Nil -- ok, folds from right = append traverses whole list once
 
 -- | Map a function then flatten to a list.
 --
