@@ -57,8 +57,10 @@ instance Apply List where
     List (a -> b)
     -> List a
     -> List b
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance List"
+  fs <*> as = flatMap (`map` as) fs
+  -- Proof.
+  --    (.) <$> List a <*> List b <*> List c
+  -- ??
 
 -- | Implement @Apply@ instance for @Optional@.
 --
@@ -75,8 +77,7 @@ instance Apply Optional where
     Optional (a -> b)
     -> Optional a
     -> Optional b
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance Optional"
+  (<*>) = applyOptional
 
 -- | Implement @Apply@ instance for reader.
 --
