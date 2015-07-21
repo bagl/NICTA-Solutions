@@ -230,9 +230,7 @@ flattenAgain = flatMap id
 seqOptional ::
   List (Optional a)
   -> Optional (List a)
-seqOptional = foldRight f (Full Nil) -- TODO: short-circuit
-  where f (Full x) (Full l) = Full $ x :. l
-        f _        _        = Empty
+seqOptional = foldRight (twiceOptional (:.)) (Full Nil) -- TODO: short-circuit
 
 -- | Find the first element in the list matching the predicate.
 --
