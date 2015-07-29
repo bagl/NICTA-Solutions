@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE TupleSections #-}
 
 module Course.FileIO where
 
@@ -62,8 +63,10 @@ the contents of c
 -- /Tip:/ use @getArgs@ and @run@
 main ::
   IO ()
-main =
-  error "todo: Course.FileIO#main"
+main = getArgs >>= \as ->
+  case as of
+  Nil    -> pure ()
+  (a:._) -> run a
 
 type FilePath =
   Chars
@@ -72,31 +75,32 @@ type FilePath =
 run ::
   Chars
   -> IO ()
-run =
-  error "todo: Course.FileIO#run"
+run cs = printFiles =<< getFiles (lines cs)
 
 getFiles ::
   List FilePath
   -> IO (List (FilePath, Chars))
-getFiles =
-  error "todo: Course.FileIO#getFiles"
+getFiles = sequence . map getFile
 
 getFile ::
   FilePath
   -> IO (FilePath, Chars)
-getFile =
-  error "todo: Course.FileIO#getFile"
+getFile p = (p,) <$> readFile p
 
 printFiles ::
   List (FilePath, Chars)
   -> IO ()
-printFiles =
-  error "todo: Course.FileIO#printFiles"
+printFiles xs =
+  const () <$> sequence (map (uncurry' printFile) xs)
 
 printFile ::
   FilePath
   -> Chars
   -> IO ()
-printFile =
-  error "todo: Course.FileIO#printFile"
+printFile p c = putStrLn $ formatFile p c
 
+formatFile :: FilePath -> Chars -> Chars
+formatFile p c = "============ " ++ p ++ "\n" ++ c
+
+uncurry' :: (a -> b -> c) -> (a, b) -> c
+uncurry' f (a, b) = f a b
