@@ -42,8 +42,8 @@ instance Functor (State s) where
     -> State s a
     -> State s b
   f <$> sa = State $ \s ->
-    let (a, sa') = runState sa s
-    in (f a, sa')
+    first f $ runState sa s
+
 
 -- | Implement the `Apply` instance for `State s`.
 -- >>> runState (pure (+1) <*> pure 0) 0
@@ -57,10 +57,9 @@ instance Apply (State s) where
     State s (a -> b)
     -> State s a
     -> State s b
-  (<*>) sf sa = State $ \s ->
+  sf <*> sa = State $ \s ->
     let (f, sf') = runState sf s
-        (a, sa') = runState sa sf'
-    in (f a, sa')
+    in first f $ runState sa sf'
 
 -- | Implement the `Applicative` instance for `State s`.
 -- >>> runState (pure 2) 0
@@ -79,7 +78,7 @@ instance Bind (State s) where
     (a -> State s b)
     -> State s a
     -> State s b
-  (=<<) f sa = State $ \s ->
+  f =<< sa = State $ \s ->
     let (a, sa') = runState sa s
     in runState (f a) sa'
 
@@ -141,7 +140,7 @@ findM ::
   -> List a
   -> f (Optional a)
 findM _ Nil     = pure Empty
-findM p (a:.as) = bool (findM p as) (pure $ Full a) =<< p a
+findM p (a:.as) = p a >>= bool (findM p as) (pure $ Full a)
 
 -- | Find the first element in a `List` that repeats.
 -- It is possible that no element repeats, hence an `Optional` result.
