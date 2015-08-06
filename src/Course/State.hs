@@ -159,8 +159,17 @@ distinct as = eval (filtering p as) S.empty
 --
 -- >>> isHappy 44
 -- True
-isHappy ::
-  Integer
-  -> Bool
-isHappy =
-  error "todo: Course.State#isHappy"
+isHappy :: Integer -> Bool
+isHappy n = contains 1 $ eval (findM happy $ produce square n) S.empty
+  where
+    happy :: Integer -> State (S.Set Integer) Bool
+    happy i = (\s -> i == 1 || S.member i s) <$> getPut (S.insert i)
+
+toDigits :: Integer -> List Integer
+toDigits = go Nil
+  where go l n = let (d, m) = divMod n 10
+                     ml = m :. l
+                 in bool (go ml d) ml $ d == 0
+
+square :: Integer -> Integer
+square =  P.fromIntegral . sum . map ((P.^(2 :: Int)) . P.fromIntegral) . toDigits
