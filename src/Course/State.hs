@@ -85,14 +85,14 @@ eval sa = fst . runState sa
 -- >>> runState get 0
 -- (0,0)
 get :: State s s
-get = State $ join (,)
+get = State $ \s -> (s,s)
 
 -- | A `State` where the resulting state is seeded with the given value.
 --
 -- >>> runState (put 1) 0
 -- ((),1)
 put :: s -> State s ()
-put = State . const ((),)
+put s = State $ \_ -> ((), s)
 
 getPut :: (s -> s) -> State s s
 getPut f = get >>= \s -> put (f s) >> pure s
