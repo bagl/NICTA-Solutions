@@ -286,10 +286,10 @@ distinctG as = runOptionalT $ evalT (filtering p as) S.empty
   where p :: (Integral a, Show a)
           => a
           -> StateT (S.Set a) (OptionalT (Logger Chars)) Bool
-        p a | a > 100   =
-          StateT $ \_ -> OptionalT $ log1 ("aborting > 100: " ++ show' a) Empty
-        p a | even a    = StateT $ \s ->
-          OptionalT $ log1 ("even number: " ++ show' a) $ res a s
-            | otherwise = StateT $ \s ->
-          OptionalT $ pure $ res a s
-        res a s = Full (not $ S.member a s, S.insert a s)
+        p a = StateT $ \s -> OptionalT $
+                if a > 100
+                then log1 ("aborting > 100: " ++ show' a) Empty
+                else let res = Full (not $ S.member a s, S.insert a s)
+                     in if even a
+                        then log1 ("even number: " ++ show' a) res
+                        else pure res
