@@ -207,7 +207,7 @@ flattenAgain = flatMap id
 
 -- | Convert a list of optional values to an optional list of values.
 --
--- * If the list contains all `Full` values, 
+-- * If the list contains all `Full` values,
 -- then return `Full` list of values.
 --
 -- * If the list contains one or more `Empty` values,
@@ -321,6 +321,11 @@ notReverse ::
   List a
   -> List a
 notReverse = reverse -- not possible
+
+---- Custom Additions
+tails :: List a -> List (List a)
+tails = fst . foldRight f (Nil, Nil)
+  where f e (acc, la) = let la' = e :. la in (la' :. acc, la')
 
 ---- End of list exercises
 
