@@ -327,6 +327,10 @@ tails :: List a -> List (List a)
 tails = fst . foldRight f (Nil, Nil)
   where f e (acc, la) = let la' = e :. la in (la' :. acc, la')
 
+null :: List a -> Bool
+null Nil = True
+null _   = False
+
 ---- End of list exercises
 
 largeList ::
