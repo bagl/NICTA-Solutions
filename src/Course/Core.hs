@@ -18,6 +18,7 @@ module Course.Core(
 , IO
 , Rational
 , seq
+, either
 , error
 , undefined
 , const
@@ -64,6 +65,7 @@ import Prelude(
   , IO
   , Rational
   , seq
+  , either
   , error
   , undefined
   , const
