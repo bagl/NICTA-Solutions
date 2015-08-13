@@ -11,6 +11,7 @@ import Course.Apply
 import Course.Applicative
 import Course.Extend
 import Course.Comonad
+import Course.Bind
 import Course.Traversable
 import qualified Prelude as P
 
@@ -169,6 +170,10 @@ setFocus :: a
          -> ListZipper a
          -> ListZipper a
 setFocus = withFocus . const
+
+getFocus :: ListZipper a
+         -> a
+getFocus (ListZipper _ a _) = a
 
 -- A flipped infix alias for `setFocus`. This allows:
 --
@@ -417,13 +422,14 @@ moveLeftN' :: Int
            -> ListZipper a
            -> Either Int (ListZipper a)
 moveLeftN' n' = go n'
-  where go n z | n == 0 = Right z
-               | n >  0 = case moveLeft z of
-                   IsZ z' -> go (n-1) z'
-                   IsNotZ -> Left $ n' - n
-               | n <  0 = case moveRight z of
-                   IsZ z' -> go (n+1) z'
-                   IsNotZ -> Left $ negate $ n' - n
+  where go n z
+          | n >  0 = case moveLeft z of
+            IsZ z' -> go (n-1) z'
+            IsNotZ -> Left $ n' - n
+          | n <  0 = case moveRight z of
+            IsZ z' -> go (n+1) z'
+            IsNotZ -> Left $ negate $ n' - n
+          | otherwise = Right z
 
 -- | Move the focus right the given number of positions. If the value is negative, move left instead.
 -- If the focus cannot be moved, the given number of times, return the value by which it can be moved instead.
@@ -614,7 +620,11 @@ instance Applicative MaybeListZipper where
 -- >>> id <<= (zipper [2,1] 3 [4,5])
 -- [[1] >2< [3,4,5],[] >1< [2,3,4,5]] >[2,1] >3< [4,5]< [[3,2,1] >4< [5],[4,3,2,1] >5< []]
 instance Extend ListZipper where
-  (<<=) = error "todo: Course.ListZipper (<<=)#instance ListZipper"
+  (<<=) f z = f <$> ListZipper (unfoldr (g moveLeft) z) z (unfoldr (g moveRight) z)
+    where g :: (ListZipper a -> MaybeListZipper a)
+            -> ListZipper a
+            -> Optional (ListZipper a, ListZipper a)
+          g mf zz = join (,) <$> toOptional (mf zz)
 
 -- | Implement the `Extend` instance for `MaybeListZipper`.
 -- This instance will use the `Extend` instance for `ListZipper`.
@@ -626,7 +636,8 @@ instance Extend ListZipper where
 -- >>> id <<= (IsZ (zipper [2,1] 3 [4,5]))
 -- [[1] >2< [3,4,5],[] >1< [2,3,4,5]] >[2,1] >3< [4,5]< [[3,2,1] >4< [5],[4,3,2,1] >5< []]
 instance Extend MaybeListZipper where
-  (<<=) = error "todo: Course.ListZipper (<<=)#instance MaybeListZipper"
+  (<<=) f (IsZ z) = IsZ $ f . IsZ <<= z
+  (<<=) _ IsNotZ  = IsNotZ
 
 -- | Implement the `Comonad` instance for `ListZipper`.
 -- This implementation returns the current focus of the zipper.
@@ -634,7 +645,7 @@ instance Extend MaybeListZipper where
 -- >>> copure (zipper [2,1] 3 [4,5])
 -- 3
 instance Comonad ListZipper where
-  copure = error "todo: Course.ListZipper copure#instance ListZipper"
+  copure = getFocus
 
 -- | Implement the `Traversable` instance for `ListZipper`.
 -- This implementation traverses a zipper while running some `Applicative` effect through the zipper.
@@ -646,7 +657,8 @@ instance Comonad ListZipper where
 -- >>> traverse id (zipper [Full 1, Full 2, Full 3] (Full 4) [Empty, Full 6, Full 7])
 -- Empty
 instance Traversable ListZipper where
-  traverse = error "todo: Course.ListZipper traverse#instance ListZipper"
+  traverse f (ListZipper l c r) =
+    lift3 ListZipper (traverse f l) (f c) (traverse f r) -- TODO: is traverse f l ok? Should it be reversed?
 
 -- | Implement the `Traversable` instance for `MaybeListZipper`.
 --
@@ -658,7 +670,8 @@ instance Traversable ListZipper where
 -- >>> traverse id (IsZ (zipper [Full 1, Full 2, Full 3] (Full 4) [Full 5, Full 6, Full 7]))
 -- Full [1,2,3] >4< [5,6,7]
 instance Traversable MaybeListZipper where
-  traverse = error "todo: Course.ListZipper traverse#instance MaybeListZipper"
+  traverse f (IsZ z) = IsZ <$> traverse f z
+  traverse _ IsNotZ  = pure IsNotZ
 
 -----------------------
 -- SUPPORT LIBRARIES --
