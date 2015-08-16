@@ -93,7 +93,7 @@ failed = P $ \_ -> ErrorResult Failed
 -- True
 character :: Parser Char
 character = P $ \i -> case i of
-  Nil      -> ErrorResult Failed
+  Nil      -> ErrorResult UnexpectedEof
   (h :. t) -> Result t h
 
 -- | Return a parser that maps any succeeding result with the given function.
