@@ -104,11 +104,9 @@ jsonString = between (is '"') (is '"')
            $ noneof "\"\\" ||| is '\\' *> (hexu ||| specialChar)
 
 specialChar :: Parser Char
-specialChar = P $ \i -> case i of
-  Nil      -> ErrorResult UnexpectedEof
-  (h :. t) -> optional (ErrorResult $ UnexpectedChar h)
-                       (Result t)
-                       (fromSpecialCharacter <$> toSpecialCharacter h)
+specialChar = character >>= \c -> case toSpecialCharacter c of
+  Empty   -> unexpectedCharParser c
+  Full sc -> pure $ fromSpecialCharacter sc
 
 -- | Parse a JSON rational.
 --
