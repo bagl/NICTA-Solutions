@@ -26,6 +26,10 @@ bindOptional f (Full a) = f a
 Empty ?? d  = d
 Full a ?? _ = a
 
+optional :: b -> (a -> b) -> Optional a -> b
+optional _ f (Full a) = f a
+optional d _ Empty    = d
+
 (<+>) :: Optional a -> Optional a -> Optional a
 Empty <+> o = o
 k <+> _     = k
