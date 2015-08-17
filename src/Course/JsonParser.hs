@@ -5,16 +5,16 @@
 
 module Course.JsonParser where
 
-import Course.Core
-import Course.Parser
-import Course.MoreParser
-import Course.JsonValue
-import Course.Functor
-import Course.Apply
 import Course.Applicative
+import Course.Apply
 import Course.Bind
+import Course.Core
+import Course.Functor
+import Course.JsonValue
 import Course.List
+import Course.MoreParser
 import Course.Optional
+import Course.Parser
 
 -- $setup
 -- >>> :set -XOverloadedStrings
