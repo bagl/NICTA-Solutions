@@ -22,7 +22,6 @@ module Course.Cheque where
 import Course.Core
 import Course.Optional
 import Course.List
-import Course.Functor
 import Course.Apply
 import Course.Bind
 
@@ -176,76 +175,49 @@ illion =
      ] ++ lift2 ((++) =<<) preillion postillion
 
 -- A data type representing the digits zero to nine.
-data Digit =
-  Zero
-  | One
-  | Two
-  | Three
-  | Four
-  | Five
-  | Six
-  | Seven
-  | Eight
-  | Nine
-  deriving (Eq, Enum, Bounded)
+data Digit = Zero
+           | One
+           | Two
+           | Three
+           | Four
+           | Five
+           | Six
+           | Seven
+           | Eight
+           | Nine
+           deriving (Eq, Enum, Bounded, Show)
 
-showDigit ::
-  Digit
-  -> Chars
-showDigit Zero =
-  "zero"
-showDigit One =
-  "one"
-showDigit Two =
-  "two"
-showDigit Three =
-  "three"
-showDigit Four =
-  "four"
-showDigit Five =
-  "five"
-showDigit Six =
-  "six"
-showDigit Seven =
-  "seven"
-showDigit Eight =
-  "eight"
-showDigit Nine =
-  "nine"
+showDigit :: Digit -> Chars
+showDigit Zero  = "zero"
+showDigit One   = "one"
+showDigit Two   = "two"
+showDigit Three = "three"
+showDigit Four  = "four"
+showDigit Five  = "five"
+showDigit Six   = "six"
+showDigit Seven = "seven"
+showDigit Eight = "eight"
+showDigit Nine  = "nine"
 
 -- A data type representing one, two or three digits, which may be useful for grouping.
-data Digit3 =
-  D1 Digit
-  | D2 Digit Digit
-  | D3 Digit Digit Digit
-  deriving Eq
+data Digit3 = D1 Digit
+            | D2 Digit Digit
+            | D3 Digit Digit Digit
+            deriving (Eq, Show)
 
 -- Possibly convert a character to a digit.
-fromChar ::
-  Char
-  -> Optional Digit
-fromChar '0' =
-  Full Zero
-fromChar '1' =
-  Full One
-fromChar '2' =
-  Full Two
-fromChar '3' =
-  Full Three
-fromChar '4' =
-  Full Four
-fromChar '5' =
-  Full Five
-fromChar '6' =
-  Full Six
-fromChar '7' =
-  Full Seven
-fromChar '8' =
-  Full Eight
-fromChar '9' =
-  Full Nine
-fromChar _ =
-  Empty
+fromChar :: Char -> Optional Digit
+fromChar '0' = Full Zero
+fromChar '1' = Full One
+fromChar '2' = Full Two
+fromChar '3' = Full Three
+fromChar '4' = Full Four
+fromChar '5' = Full Five
+fromChar '6' = Full Six
+fromChar '7' = Full Seven
+fromChar '8' = Full Eight
+fromChar '9' = Full Nine
+fromChar _   = Empty
 
 -- | Take a numeric value and produce its English output.
 --
@@ -320,8 +292,76 @@ fromChar _ =
 --
 -- >>> dollars "456789123456789012345678901234567890123456789012345678901234567890.12"
 -- "four hundred and fifty-six vigintillion seven hundred and eighty-nine novemdecillion one hundred and twenty-three octodecillion four hundred and fifty-six septendecillion seven hundred and eighty-nine sexdecillion twelve quindecillion three hundred and forty-five quattuordecillion six hundred and seventy-eight tredecillion nine hundred and one duodecillion two hundred and thirty-four undecillion five hundred and sixty-seven decillion eight hundred and ninety nonillion one hundred and twenty-three octillion four hundred and fifty-six septillion seven hundred and eighty-nine sextillion twelve quintillion three hundred and forty-five quadrillion six hundred and seventy-eight trillion nine hundred and one billion two hundred and thirty-four million five hundred and sixty-seven thousand eight hundred and ninety dollars and twelve cents"
-dollars ::
-  Chars
-  -> Chars
-dollars =
-  error "todo: Course.Cheque#dollars"
+dollars :: Chars -> Chars
+dollars chars =
+  let (d, c) = (\(a,b) -> (filter isDigit a, filter isDigit b))
+               $ splitAt '.' chars
+      ad = amount $ if null d then "0" else d
+      ac = cents c
+      ds = if ad == "one " then "dollar" else "dollars"
+      cs = if ac == "one" then " cent" else " cents"
+  in ad ++ ds ++ " and " ++ ac ++ cs
+
+cents :: Chars -> Chars
+cents cs = unwords
+           $ numToWords
+           $ take 2
+           $ (++ repeat '0') cs
+
+amount :: Chars -> Chars
+amount = unwords
+         . flatten
+         . reverse
+         . map (\(illi, hund) -> hund :. illi :. Nil)
+         . skipZerosAfterFirst
+         . zip illion
+         . reverse
+         . numToWords
+  where skipZerosAfterFirst l =
+          take 1 l ++ filter ((/= "zero") . snd) (drop 1 l)
+
+numToWords :: Chars -> List Chars
+numToWords = map digitsToChars . toDigits3
+
+data D3' = D3' Digit Digit Digit
+
+toDigits3 :: Chars -> List Digit3
+toDigits3 ds = toDigits3' $ replicate padNZeros Zero ++ digits
+  where toDigits3' (d1 :. d2 :. d3 :. ds') = D3 d1 d2 d3 :. toDigits3' ds'
+        toDigits3' (d1 :. d2 :. Nil)      = D2 d1 d2 :. Nil
+        toDigits3' (d1 :. Nil)            = D1 d1 :. Nil
+        toDigits3' Nil                    = Nil
+        digits = fulls $ map fromChar ds
+        padNZeros = case length digits `mod` 3 of
+          1 -> 2
+          2 -> 1
+          _ -> 0
+
+tensToChars :: Digit -> Chars
+tensToChars Zero  = ""
+tensToChars One   = "teen"
+tensToChars Two   = "twenty"
+tensToChars Three = "thirty"
+tensToChars Four  = "forty"
+tensToChars Five  = "fifty"
+tensToChars Eight = "eighty"
+tensToChars d     = showDigit d ++ "ty"
+
+digitsToChars :: Digit3 -> Chars
+digitsToChars (D1 d)         = showDigit d
+digitsToChars (D2 Zero d)    = showDigit d
+digitsToChars (D2 One Zero)  = "ten"
+digitsToChars (D2 One One)   = "eleven"
+digitsToChars (D2 One Two)   = "twelve"
+digitsToChars (D2 One Three) = "thirteen"
+digitsToChars (D2 One Four)  = "fourteen"
+digitsToChars (D2 One Five)  = "fifteen"
+digitsToChars (D2 One Six)   = "sixteen"
+digitsToChars (D2 One Seven) = "seventeen"
+digitsToChars (D2 One Eight) = "eighteen"
+digitsToChars (D2 One Nine)  = "nineteen"
+digitsToChars (D2 t Zero)    = tensToChars t
+digitsToChars (D2 t d)       = tensToChars t ++ "-" ++ showDigit d
+digitsToChars (D3 Zero t d)    = digitsToChars (D2 t d)
+digitsToChars (D3 h Zero Zero) = showDigit h ++ " hundred"
+digitsToChars (D3 h t d)       = showDigit h ++ " hundred and " ++ digitsToChars (D2 t d)

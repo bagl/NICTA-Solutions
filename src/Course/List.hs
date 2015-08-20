@@ -331,6 +331,28 @@ null :: List a -> Bool
 null Nil = True
 null _   = False
 
+fulls :: List (Optional a) -> List a
+fulls = foldRight f Nil
+  where f Empty l    = l
+        f (Full a) l = a :. l
+
+-- | Split list into pair of elements to the left
+-- and to the right of the given element
+--
+-- >>> splitAt '.' Nil
+-- ("","")
+--
+-- >>> splitAt '.' $ listh "abc."
+-- ("abc","")
+--
+-- >>> splitAt '.' $ listh ".abc"
+-- ("","abc")
+--
+-- >>> splitAt '.' $ listh "abc.def.ghc"
+-- ("abc","def.ghc")
+splitAt :: Eq a => a -> List a -> (List a, List a)
+splitAt a as = let (l, r) = span (/= a) as
+               in (l, drop 1 r)
 ---- End of list exercises
 
 largeList ::
