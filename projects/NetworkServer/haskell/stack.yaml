@@ -1,0 +1,7 @@
+flags:
+  network-server:
+    small_base: true
+packages:
+- '.'
+extra-deps: []
+resolver: lts-2.22
