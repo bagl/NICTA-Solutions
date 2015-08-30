@@ -25,41 +25,70 @@ executable network-tictactoe
 
   main-is:          Network/Server/TicTacToe/Main.hs
 
+  other-modules:
+                Data.TicTacToe
+              , Network.Server.Common.Accept
+              , Network.Server.Common.Env
+              , Network.Server.Common.HandleLens
+              , Network.Server.Common.Lens
+              , Network.Server.Common.Line
+              , Network.Server.Common.Ref
+              , Network.Server.TicTacToe.Game
+              , Network.Server.TicTacToe.Loop
+
+
   hs-source-dirs:   src
 
-  build-depends:    base < 5 && >= 4
-                    , network-server
-                    , mtl
-                    , containers
-                    , network
-                    , QuickCheck
+  build-depends:
+                base < 5 && >= 4
+              , network-server
+              , mtl
+              , containers
+              , doctest >= 0.9.7
+              , network
+              , QuickCheck
 
   ghc-options:      -Wall
 
 executable network-chat
   default-language: Haskell2010
 
-  main-is:          Network/Server/Chat/Main.hs
+  main-is:      Network/Server/Chat/Main.hs
+
+  other-modules:
+                Network.Server.Chat.Chat
+              , Network.Server.Chat.Loop
+              , Network.Server.Common.Accept
+              , Network.Server.Common.Env
+              , Network.Server.Common.HandleLens
+              , Network.Server.Common.Lens
+              , Network.Server.Common.Line
+              , Network.Server.Common.Ref
+
 
   hs-source-dirs:   src
 
-  build-depends:    base < 5 && >= 4
-                    , network-server
-                    , mtl
-                    , containers
-                    , network
-                    , QuickCheck
+  build-depends:
+                base < 5 && >= 4
+              , network-server
+              , mtl
+              , containers
+              , network
+              , doctest >= 0.9.7
+              , QuickCheck
 
   ghc-options:      -Wall
 
 library
   default-language: Haskell2010
 
-  build-depends:    base < 5 && >= 4
-                    , mtl
-                    , containers
-                    , network
-                    , QuickCheck
+  build-depends:
+                base < 5 && >= 4
+              , mtl
+              , containers
+              , network
+              , doctest >= 0.9.7
+              , QuickCheck
 
   ghc-options:      -Wall
 
@@ -81,26 +110,29 @@ library
                    , Network.Server.TicTacToe
                    , Network.Server
 
-test-suite          doctests
+  other-modules:
+                Data.TicTacToe
+
+test-suite      doctests
   type:
-                    exitcode-stdio-1.0
+                exitcode-stdio-1.0
 
   main-is:
-                    doctests.hs
+                doctests.hs
 
   default-language:
-                    Haskell2010
+                Haskell2010
 
   build-depends:
-                    base < 5 && >= 3,
-                    doctest >= 0.9.7,
-                    filepath >= 1.3,
-                    directory >= 1.1,
-                    QuickCheck >= 2.0
+                base < 5 && >= 3
+              , doctest >= 0.9.7
+              , filepath >= 1.3
+              , directory >= 1.1
+              , QuickCheck >= 2.0
 
   ghc-options:
-                    -Wall
-                    -threaded
+              -Wall
+              -threaded
 
   hs-source-dirs:
-                    test
+                test
