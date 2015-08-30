@@ -9,28 +9,22 @@ import           Data.Foldable hiding (foldr)
 import           Data.List(intercalate)
 
 
-data Player =
-    Naught
-  | Cross
-  deriving (Ord, Eq)
+data Player = Naught
+            | Cross
+            deriving (Ord, Eq)
 
 instance Show Player where
-  show Naught =
-    "O"
-  show Cross =
-    "X"
+  show Naught = "O"
+  show Cross  = "X"
 
-data EmptyBoard =
-  EmptyBoard
-  deriving (Eq, Show)
+data EmptyBoard = EmptyBoard
+                deriving (Eq, Show)
 
-data Board =
-  Board (Map Position Player) [(Position, Player)]
-  deriving Eq
+data Board = Board (Map Position Player) [(Position, Player)]
+           deriving Eq
 
-data FinishedBoard =
-  FinishedBoard (Maybe Player) Board
-  deriving Eq
+data FinishedBoard = FinishedBoard (Maybe Player) Board
+                   deriving Eq
 
 instance Show FinishedBoard where
   show (FinishedBoard Nothing b) =
@@ -38,23 +32,18 @@ instance Show FinishedBoard where
   show (FinishedBoard (Just p) b) =
     show b ++ "\n" ++ show p ++ " wins"
 
-data Position =
-  N | E | S | W | NE | NW | SE | SW | C
-  deriving (Enum, Bounded, Ord, Eq, Show)
+data Position = N | E | S | W | NE | NW | SE | SW | C
+              deriving (Enum, Bounded, Ord, Eq, Show)
 
-data Outcome =
-    InvalidMove
-  | Inplay Board
-  | Done FinishedBoard
-  deriving Eq
+data Outcome = InvalidMove
+             | Inplay Board
+             | Done FinishedBoard
+             deriving Eq
 
 instance Show Outcome where
-  show InvalidMove =
-    "?"
-  show (Inplay b) =
-    show b
-  show (Done b) =
-    show b
+  show InvalidMove = "?"
+  show (Inplay b)  = show b
+  show (Done b)    = show b
 
 
 instance Show Board where
@@ -76,54 +65,36 @@ instance Show Board where
              ]
         blank = ".===.===.===."
     in intercalate "\n"
-         [
-           blank
-         , line NW N NE
-         , blank
-         , line W C E
-         , blank
-         , line SW S SE
-         , blank
-         ]
+       [ blank
+       , line NW N NE
+       , blank
+       , line W C E
+       , blank
+       , line SW S SE
+       , blank ]
 
-start ::
-  Position
-  -> Board
-start p =
-  Board (singleton p Naught) [(p, Naught)]
+start :: Position -> Board
+start p = Board (singleton p Naught) [(p, Naught)]
 
-move'' ::
-  Outcome
-  -> Position
-  -> Outcome
-move'' InvalidMove _ =
-  InvalidMove
-move'' (Inplay b) p =
-  move b p
-move'' (Done b) _ =
-  Done b
+move'' :: Outcome -> Position -> Outcome
+move'' InvalidMove _ = InvalidMove
+move'' (Inplay b)  p = move b p
+move'' (Done b)    _ = Done b
 
-data TakenBack =
-  BoardBack Board
-  | EmptyBack
-  deriving (Eq, Show)
+data TakenBack = BoardBack Board
+               | EmptyBack
+               deriving (Eq, Show)
 
-takeBack' ::
-  FinishedBoard
-  -> Board
-takeBack' =
-  undefined
+takeBack' :: FinishedBoard -> Board
+takeBack' (FinishedBoard _ b) = b
 
-takeBack ::
-  Board
-  -> TakenBack
-takeBack =
-  undefined
+takeBack :: Board -> TakenBack
+takeBack (Board _ [])            = error "no history on non-empty board cannot happen"
+takeBack (Board _ [_])           = EmptyBack
+takeBack (Board m ((pos, _):ts)) =
+  BoardBack $ Board (M.delete pos m) ts
 
-move ::
-  Board
-  -> Position
-  -> Outcome
+move :: Board -> Position -> Outcome
 move board@(Board m h) p =
   if p `M.member` m
     then
