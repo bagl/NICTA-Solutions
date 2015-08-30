@@ -62,12 +62,14 @@ server ::
   -> IOLoop v () -- per-client
   -> IO a
 server i r (Loop f) =
-  let hand s w c = forever $
-                     do q <- accept' s
-                        lSetBuffering q NoBuffering
-                        _ <- atomicModifyIORef_ c (S.insert (refL `getL` q))
-                        x <- r w
-                        forkIO (f (Env q c x))
+  let hand s w c =
+        forever $
+        do q <- accept' s
+           lSetBuffering q NoBuffering
+           _ <- atomicModifyIORef_ c
+                (S.insert (refL `getL` q))
+           x <- r w
+           forkIO (f (Env q c x))
   in withSocketsDo $ do
        s <- listenOn (PortNumber 6060)
        w <- i
@@ -75,14 +77,23 @@ server i r (Loop f) =
        hand s w c `finally` sClose s
 
 allClients :: IOLoop v (Set Ref)
-allClients = Loop $ \env -> readIORef (clientsL `getL` env)
+allClients = Loop $ \env ->
+  readIORef (clientsL `getL` env)
 
 perClient ::
   IOLoop v x -- client accepted (post)
   -> (String -> IOLoop v a) -- read line from client
   -> IOLoop v ()
-perClient =
-  error "todo"
+perClient ca rl = void $ ca >> foreverLoop (readLineLoop >>= rl)
+
+runLoop :: Loop v f a -> Env v -> f a
+runLoop (Loop g) = g
+
+foreverLoop :: Monad m => Loop v m a -> Loop v m a
+foreverLoop (Loop g) = Loop $ forever . g
+
+readLineLoop :: IOLoop v String
+readLineLoop = Loop lGetLine
 
 loop ::
   IO w -- server initialise
@@ -140,7 +151,7 @@ readEnv ::
   Applicative f =>
   Loop v f (Env v)
 readEnv =
-  Loop $ pure
+  Loop pure
 
 readEnvval ::
   Applicative f =>
