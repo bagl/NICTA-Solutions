@@ -1,14 +1,14 @@
 module Network.Server.Chat.Loop where
 
-import Prelude hiding (mapM_, catch)
+import Prelude hiding (mapM_)
 import Network(PortID(..), sClose, withSocketsDo, listenOn)
 import System.IO(BufferMode(..))
 import Data.IORef(IORef, newIORef, readIORef)
 import Data.Foldable(Foldable, mapM_)
-import Control.Applicative(Applicative, pure)
+import Control.Applicative(Applicative, pure, (<*>))
 import Control.Concurrent(forkIO)
 import Control.Exception(finally, try, catch, Exception)
-import Control.Monad(forever)
+import Control.Monad(forever, void)
 import Control.Monad.Trans(MonadTrans(..), MonadIO(..))
 
 import Network.Server.Common.Accept
@@ -32,6 +32,11 @@ type IORefLoop v a =
 instance Functor f => Functor (Loop v f) where
   fmap f (Loop k) =
     Loop (fmap f . k)
+
+-- TODO: prove that it follows applicative laws
+instance Applicative f => Applicative (Loop v f) where
+  pure = Loop . pure . pure
+  (Loop k) <*> (Loop a) = Loop $ \v -> k v <*> a v
 
 instance Monad f => Monad (Loop v f) where
   return =
