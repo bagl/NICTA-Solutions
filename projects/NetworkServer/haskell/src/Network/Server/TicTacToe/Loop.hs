@@ -1,16 +1,15 @@
 module Network.Server.TicTacToe.Loop where
 
-import Prelude hiding (mapM_, catch)
+import Prelude hiding (mapM_)
 import System.IO(BufferMode(..))
 import Network(PortID(..), sClose, withSocketsDo, listenOn)
 import Data.IORef(IORef, newIORef, readIORef)
 import Data.Foldable(Foldable, mapM_)
 import Control.Applicative(Applicative, pure)
 import Control.Monad.Trans(MonadIO(..), MonadTrans(..))
-import Control.Monad(liftM)
+import Control.Monad(forever, liftM)
 import Control.Concurrent(forkIO)
 import Control.Exception(finally, try, catch, Exception)
-import Control.Monad(forever)
 
 import Network.Server.Common.Accept
 import Network.Server.Common.HandleLens
@@ -119,8 +118,8 @@ iorefServer ::
   -> s -- initial state
   -> IORefLoop v s () -- per-client
   -> IO a
-iorefServer x s =
-  server (newIORef x) return s
+iorefServer x =
+  server (newIORef x) return
 
 iorefLoop ::
   v -- server initialise
@@ -163,7 +162,7 @@ readEnv ::
   Applicative f =>
   Loop v s f (Env v)
 readEnv =
-  initLoop $ pure
+  initLoop pure
 
 readEnvval ::
   Applicative f =>
@@ -184,13 +183,12 @@ allClientsButThis =
     fmap (S.delete ((acceptL .@ refL) `getL` env)) (readIORef (clientsL `getL` env))
 
 -- Control.Monad.CatchIO
-ecatch ::
-  Exception e =>
-  IOLoop v s a
-  -> (e -> IOLoop v s a)
-  -> IOLoop v s a
-ecatch (Loop k) f =
-  Loop $ \env s -> k env s `catch` (\e -> let Loop l = f e in l env s)
+ecatch :: Exception e
+       => IOLoop v s a
+       -> (e -> IOLoop v s a)
+       -> IOLoop v s a
+ecatch (Loop k) f = Loop $ \env s ->
+  k env s `catch` (\e -> let Loop l = f e in l env s)
 
 modifyClients ::
   (Set Ref -> Set Ref)
