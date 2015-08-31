@@ -5,7 +5,5 @@ module Main
 
 import Network.Server.TicTacToe.Game
 
-main ::
-  IO ()
-main =
-  play
+main :: IO ()
+main = play
