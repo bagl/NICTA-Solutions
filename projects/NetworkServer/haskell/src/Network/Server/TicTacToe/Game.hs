@@ -10,6 +10,7 @@ import Network.Server.TicTacToe.Loop
 import Data.Char(isSpace, toLower, toUpper)
 import Data.Function(on)
 import Data.IORef(readIORef, atomicModifyIORef)
+import Data.Map (singleton)
 import Data.Maybe(fromMaybe)
 import Data.Foldable(msum, find)
 import Data.Set(Set)
@@ -138,18 +139,32 @@ allClients = initLoop $ \env ->
 
 process :: Command -> Game ()
 process (Move position) = error "TODO"
-process Current         = currentBoard >>= pPutStrLn . show
-process Finished        = finishedGames >>= pPutStrLn . show
-process (Chat msg)      = allClientsButThis ! msg
-process Turn            = currentBoard >>= pPutStrLn . show . whoseTurn
-process (At position)   = currentBoard >>= pPutStrLn . maybe " " show . whoOccupies position
-process (Unknown commd) = pPutStrLn $ "Unknown command: " ++ commd
+process Current         = currentBoard >>= printFormatted
+process Finished        = finishedGames >>= printFormatted
+process (Chat msg)      = allClientsButThis ! formatResponse msg
+process Turn            = currentBoard >>= printFormatted . whoseTurn
+process (At position)   = currentBoard >>= printFormatted . whoOccupies position
+process (Unknown commd) = pPutStrLnFormatted $ "Unknown command: " ++ commd
 
 game :: Game x -- client accepted (post)
      -> (String -> Game w) -- read line from client
      -> IO a
-game = error "todo"
+game ca rl = iorefLoop
+             b
+             (b, [])
+             ca
+             rl
+  where b = Board (singleton C Naught) [(C, Naught)]
 
 play :: IO a
-play = game (currentBoard >>= pPutStrLn . show)
+play = game (currentBoard >>= printFormatted)
          (process . command)
+
+printFormatted :: Show a => a -> IOLoop v s ()
+printFormatted = pPutStrLnFormatted . show
+
+pPutStrLnFormatted :: String -> IOLoop v s ()
+pPutStrLnFormatted = pPutStrLn . formatResponse
+
+formatResponse :: String -> String
+formatResponse = unlines . map ("> " ++) . lines

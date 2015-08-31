@@ -14,8 +14,15 @@ data Player = Naught
             deriving (Ord, Eq)
 
 instance Show Player where
-  show Naught = "O"
-  show Cross  = "X"
+  show Naught = "[O]"
+  show Cross  = "[X]"
+
+data PlayerOnField = OccupiedField Player
+                   | EmptyField
+
+instance Show PlayerOnField where
+  show (OccupiedField p) = show p
+  show EmptyField = "[ ]"
 
 data EmptyBoard = EmptyBoard
                 deriving (Eq, Show)
@@ -131,13 +138,12 @@ switch Cross = Naught
 switch Naught = Cross
 
 whoseTurn :: Board -> Player
-whoseTurn (Board _ ((_, p):_)) =
-  switch p
-whoseTurn (Board _ []) =
-  error "broke it"
+whoseTurn (Board _ ((_, p):_)) = switch p
+whoseTurn (Board _ [])         = error "broke it"
 
-whoOccupies :: Position -> Board -> Maybe Player
-whoOccupies pos (Board m _) = M.lookup pos m
+whoOccupies :: Position -> Board -> PlayerOnField
+whoOccupies pos (Board m _) =
+  maybe EmptyField OccupiedField $ M.lookup pos m
 
 whoWon :: FinishedBoard -> Maybe Player
 whoWon (FinishedBoard mp _) = mp
