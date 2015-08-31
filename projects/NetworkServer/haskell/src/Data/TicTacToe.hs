@@ -14,14 +14,14 @@ data Player = Naught
             deriving (Ord, Eq)
 
 instance Show Player where
-  show Naught = "[O]"
-  show Cross  = "[X]"
+  show Naught = "O"
+  show Cross  = "X"
 
 data PlayerOnField = OccupiedField Player
                    | EmptyField
 
 instance Show PlayerOnField where
-  show (OccupiedField p) = show p
+  show (OccupiedField p) = "[" ++ show p ++ "]"
   show EmptyField = "[ ]"
 
 data EmptyBoard = EmptyBoard
