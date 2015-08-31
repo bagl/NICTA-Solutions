@@ -137,7 +137,13 @@ allClients = initLoop $ \env ->
   readIORef $ clientsL `getL` env
 
 process :: Command -> Game ()
-process = error "todo"
+process (Move position) = error "TODO"
+process Current         = currentBoard >>= pPutStrLn . show
+process Finished        = finishedGames >>= pPutStrLn . show
+process (Chat msg)      = allClientsButThis ! msg
+process Turn            = currentBoard >>= pPutStrLn . show . whoseTurn
+process (At position)   = currentBoard >>= pPutStrLn . maybe " " show . whoOccupies position
+process (Unknown commd) = pPutStrLn $ "Unknown command: " ++ commd
 
 game :: Game x -- client accepted (post)
      -> (String -> Game w) -- read line from client
