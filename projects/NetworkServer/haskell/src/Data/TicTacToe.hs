@@ -136,6 +136,12 @@ whoseTurn (Board _ ((_, p):_)) =
 whoseTurn (Board _ []) =
   error "broke it"
 
+whoOccupies :: Position -> Board -> Maybe Player
+whoOccupies pos (Board m _) = M.lookup pos m
+
+whoWon :: FinishedBoard -> Maybe Player
+whoWon (FinishedBoard mp _) = mp
+
 -- cabal install QuickCheck
 instance Arbitrary Position where
   arbitrary = elements [N, NE, NW, S, SE, SW, E, W, C]
