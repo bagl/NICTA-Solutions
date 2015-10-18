@@ -1,62 +1,138 @@
-{-# LANGUAGE TypeFamilies #-}
-
 module TicTacToe where
 
-data Started
-data InProgress
-data Finished
+import Data.List (find)
+import Data.Maybe (catMaybes)
+import ListZipper hiding (length)
+import qualified ListZipper as LZ
 
-data Move = Move Position (Player X')
-data Board a = Board [Move]
+data Player = X | O
+            deriving (Eq, Show)
+
+data BEmpty
+data BInPlay
+data BFinished
+
+data Board a =
+  Board { boardShape :: BoardShape
+        , nWins      :: Int
+        , moves      :: [Move]
+        } deriving (Eq, Show)
+
+type NewBoard = Board BEmpty
+type InPlayBoard = Board BInPlay
+type FinishedBoard = Board BFinished
+
 data Position = Position Int Int
-              deriving (Eq, Ord)
+              deriving (Eq, Ord, Show)
 
-newtype PlayableBoard =
-  PlayableBoard (Either (Board Started) (Board InProgress))
-newtype NonEmptyBoard =
-  NonEmptyBoard (Either (Board InProgress) (Board Finished))
+data Move = Move Position Player
+          deriving (Eq, Show)
+
+type PlayableBoard = Either NewBoard InPlayBoard
+type NonEmptyBoard = Either InPlayBoard FinishedBoard
+
+data InvalidMoveErr = InvalidMoveErr
+                      deriving (Show)
+
+newtype BoardShape = BoardShape (Int, Int)
+                   deriving (Eq, Show)
+
+data Result = Winner Player
+            | Draw
+
+data Field = FieldOccupied Player
+           | FieldEmpty
+           deriving (Eq, Show)
+
+data WinStats = NoWin | Win Player [Position]
+              deriving (Show)
+
+data Direction
+  = Horizontal
+  | Vertical
+  | DiagonalBL
+  | DiagonalUL
+
+emptyBoard :: Int -> Int -> Int -> NewBoard
+emptyBoard nRows nCols n =
+  Board { boardShape = BoardShape (nRows, nCols)
+        , nWins      = n
+        , moves      = []
+        }
 
 move :: PlayableBoard
      -> Position
-     -> NonEmptyBoard
-move (PlayableBoard (Left b)) pos = NonEmptyBoard . Left $ firstMove b pos
-move _ _ = error "move not implemented"
+     -> Either InvalidMoveErr NonEmptyBoard
+move (Left b) pos = Right $ Left $ firstMove b pos
+move (Right b) pos = case playerAt b pos of
+  FieldOccupied _ -> Left InvalidMoveErr
+  FieldEmpty -> case winningMove newBoard pos of
+    NoWin   -> Right $ Left newBoard
+    Win _ _ -> Right $ Right newBoard
+  where newBoard = b { moves = Move pos thisPlayer : moves b }
+        thisPlayer = case moves b of
+          []    -> firstPlayer
+          (m:_) -> nextPlayer $ player m
 
-firstMove :: Board Started -> Position -> Board InProgress
-firstMove _ pos = Board [Move pos firstPlayer]
+firstMove :: NewBoard -> Position -> InPlayBoard
+firstMove board pos = board { moves = [Move pos firstPlayer] }
 
-type family NextPlayer a where
-  NextPlayer X' = O'
-  NextPlayer O' = X'
+nextPlayer :: Player -> Player
+nextPlayer X = O
+nextPlayer O = X
 
-data X'
-data O'
+player :: Move -> Player
+player (Move _ p) = p
 
-data Player a = Player
+firstPlayer :: Player
+firstPlayer = X
 
-playerX :: Player X'
-playerX = Player
+linePositions :: BoardShape -> Position -> Direction -> ListZipper Position
+linePositions bShape pos dir = ListZipper (l (-)) pos (l (+))
+  where l f = takeWhile (isValidPosition bShape) $ drop 1 $ iterate (doDelta f) pos
+        doDelta f (Position x y) = Position (f x dx) (f y dy)
+        (dx, dy) = case dir of
+          Horizontal -> (0,  1)
+          Vertical   -> (1,  0)
+          DiagonalBL -> (1, -1)
+          DiagonalUL -> (1,  1)
 
-playerO :: Player O'
-playerO = Player
+line :: Board a -> Position -> Direction -> Maybe (ListZipper Position)
+line board pos dir =
+  case focus l of
+    FieldEmpty           -> Nothing
+    FieldOccupied _ -> let sameLZ = sameAroundFocus l
+                           nLeft  = length $ lefts sameLZ
+                           nRight = length $ rights sameLZ
+                       in Just $ takeLeft nLeft $ takeRight nRight positions
+  where positions = linePositions (boardShape board) pos dir
+        l = playerAt board <$> positions
 
-firstPlayer :: Player X'
-firstPlayer = Player
+winningMove :: Board a -> Position -> WinStats
+winningMove board position =
+  case (playerAt board position, winningLine) of
+    (FieldOccupied p, Just l) -> Win p (toList l)
+    _                         -> NoWin
+  where
+    pLines :: [ListZipper Position]
+    pLines = catMaybes $ line board position <$> [Horizontal, Vertical, DiagonalBL, DiagonalUL]
+    winningLine :: Maybe (ListZipper Position)
+    winningLine = find ((nWins board ==) . LZ.length) pLines
 
-nextPlayer :: Player a -> Player (NextPlayer a)
-nextPlayer _ = Player
+isValidPosition :: BoardShape -> Position -> Bool
+isValidPosition (BoardShape (nRows, nCols)) (Position r c) =
+  1 <= r && r <= nRows && 1 <= c && c <= nCols
 
-data Result = Winner (Player X')
-            | Draw
+nextMovePlayer :: Board a -> Player
+nextMovePlayer board = case moves board of
+  []    -> firstPlayer
+  (m:_) -> nextPlayer $ player m
 
-data Field = FieldOccupied (Player X')
-           | FieldEmpty
-
-whoWon :: Board Finished -> Result
-whoWon = undefined
+whoWon :: FinishedBoard -> Result
+whoWon = error "whoWon not implemented"
 
 playerAt :: Board a -> Position -> Field
-playerAt (Board moves) position =
+playerAt board position =
   maybe FieldEmpty FieldOccupied
   $ lookup position
-  $ map (\(Move pos player) -> (pos, player)) moves
+  $ map (\(Move pos pla) -> (pos, pla)) (moves board)
