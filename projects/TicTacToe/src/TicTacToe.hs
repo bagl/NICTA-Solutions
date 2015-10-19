@@ -1,9 +1,11 @@
 module TicTacToe
        ( emptyBoard
        , playerAt
+       , firstMove
        , move
        , whoWon
        , takeBack
+       , runGame
        , Result(..)
        , InvalidMoveErr(..)
        , Player(..)
@@ -17,27 +19,34 @@ import qualified ListZipper as LZ
 data Player = X | O
             deriving (Eq, Show)
 
-data BEmpty
-data BInPlay
-data BFinished
-
-data Board a =
+data Board =
   Board { boardShape :: BoardShape
         , nWins      :: Int
         , moves      :: [Move]
         } deriving (Eq, Show)
 
-type NewBoard = Board BEmpty
-type InPlayBoard = Board BInPlay
-type FinishedBoard = Board BFinished
+data NewBoard =
+  NewBoard { boardShape' :: BoardShape
+           , nWins'      :: Int
+           } deriving (Show)
 
-data PlayableBoard = PNewBoard NewBoard
-                   | PInPlayBoard InPlayBoard
-                   deriving (Show)
+data FinishedBoard =
+  FinishedBoard { boardShape'' :: BoardShape
+                , nWins''      :: Int
+                , moves''      :: [Move]
+                } deriving (Show)
 
-data NonEmptyBoard = NEInPlayBoard InPlayBoard
+data NonEmptyBoard = NEInPlayBoard Board
                    | NEFinishedBoard FinishedBoard
                    deriving (Show)
+
+data PlayableBoard = PNewBoard NewBoard
+                   | PInPlayBoard Board
+
+data AnyBoard = AEmpty NewBoard
+              | ABoard Board
+              | AFinished FinishedBoard
+              deriving (Show)
 
 data Position = Position Int Int
               deriving (Eq, Ord, Show)
@@ -49,6 +58,11 @@ data InvalidMoveErr = OutOfRangePosition
                     | AlreadyOccupiedField
                     | OtherPlayersTurn
                     deriving (Show)
+
+data Outcome = InvalidMove InvalidMoveErr
+             | InPlay Board
+             | Finished FinishedBoard
+             deriving (Show)
 
 newtype BoardShape = BoardShape (Int, Int)
                    deriving (Eq, Show)
@@ -69,28 +83,49 @@ data Direction
   | DiagonalBL
   | DiagonalUL
 
-emptyBoard :: Int -> Int -> Int -> PlayableBoard
-emptyBoard nRows nCols n = PNewBoard
-  Board { boardShape = BoardShape (nRows, nCols)
-        , nWins      = n
-        , moves      = []
-        }
+data NonEmpty a = NonEmpty a [a]
 
-move :: PlayableBoard
-     -> Position
-     -> Either InvalidMoveErr NonEmptyBoard
-move (PNewBoard b)    pos =
-  Right $ NEInPlayBoard $ firstMove b pos
-move (PInPlayBoard b) pos =
-  case playerAt b pos of
-    FieldOccupied _ -> Left AlreadyOccupiedField
-    FieldEmpty -> case winningMove newBoard pos of
-      NoWin   -> Right $ NEInPlayBoard newBoard
-      Win _ _ -> Right $ NEFinishedBoard newBoard
-  where newBoard = b { moves = Move pos (nextMovePlayer b) : moves b }
+emptyBoard :: Int -> Int -> Int -> NewBoard
+emptyBoard nRows nCols n =
+  NewBoard { boardShape' = BoardShape (nRows, nCols)
+           , nWins'      = n
+           }
 
-firstMove :: NewBoard -> Position -> InPlayBoard
-firstMove board pos = board { moves = [Move pos firstPlayer] }
+firstMove :: NewBoard -> Position -> Board
+firstMove board pos =
+  Board { moves = [Move pos firstPlayer]
+        , nWins = nWins' board
+        , boardShape = boardShape' board }
+
+move :: Board -> Position -> Outcome
+move b pos =
+  case playerAt aBoard pos of
+    FieldOccupied _ -> InvalidMove AlreadyOccupiedField
+    FieldEmpty -> case winningMove (ABoard newBoard) pos of
+      NoWin   -> InPlay newBoard
+      Win _ _ -> Finished (finish newBoard)
+  where aBoard = ABoard b
+        newMoves = Move pos (nextMovePlayer aBoard) : moves b
+        newBoard = b { moves = newMoves }
+
+runGame :: NewBoard -> NonEmpty Position -> Outcome
+runGame b (NonEmpty p ps) =
+  let b' = firstMove b p
+  in case ps of
+    []       -> InPlay b'
+    (p':ps') -> runGame' (move b' p') ps'
+  where
+    runGame' :: Outcome -> [Position] -> Outcome
+    runGame' err@InvalidMove{} _     = err
+    runGame' fin@Finished{}    _     = fin
+    runGame' out               []    = out
+    runGame' (InPlay b'') (p'':ps'') =
+      runGame' (move b'' p'') ps''
+
+finish :: Board -> FinishedBoard
+finish b = FinishedBoard { moves'' = moves b
+                         , boardShape'' = boardShape b
+                         , nWins'' = nWins b }
 
 nextPlayer :: Player -> Player
 nextPlayer X = O
@@ -112,19 +147,23 @@ linePositions bShape pos dir = ListZipper (l (-)) pos (l (+))
           DiagonalBL -> (1, -1)
           DiagonalUL -> (1,  1)
 
-line :: Board a -> Position -> Direction -> Maybe (ListZipper Position)
-line board pos dir =
-  case focus l of
-    FieldEmpty      -> Nothing
-    FieldOccupied _ ->
-      let sameLZ = sameAroundFocus l
-          nLeft  = length $ lefts sameLZ
-          nRight = length $ rights sameLZ
-      in Just $ takeLeft nLeft $ takeRight nRight positions
-  where positions = linePositions (boardShape board) pos dir
-        l = playerAt board <$> positions
+line :: AnyBoard -> Position -> Direction -> Maybe (ListZipper Position)
+line b' pos dir = case b' of
+  AEmpty _    -> Nothing
+  ABoard b    -> f (boardShape b)
+  AFinished b -> f (boardShape'' b)
+  where
+    f bs = let positions = linePositions bs pos dir
+               l = playerAt b' <$> positions
+           in case focus l of
+                FieldEmpty      -> Nothing
+                FieldOccupied _ ->
+                  let sameLZ = sameAroundFocus l
+                      nLeft  = length $ lefts sameLZ
+                      nRight = length $ rights sameLZ
+                  in Just $ takeLeft nLeft $ takeRight nRight positions
 
-winningMove :: Board a -> Position -> WinStats
+winningMove :: AnyBoard -> Position -> WinStats
 winningMove board position =
   case (playerAt board position, winningLine) of
     (FieldOccupied p, Just l) -> Win p (toList l)
@@ -133,39 +172,47 @@ winningMove board position =
     pLines :: [ListZipper Position]
     pLines = catMaybes $ line board position <$> [Horizontal, Vertical, DiagonalBL, DiagonalUL]
     winningLine :: Maybe (ListZipper Position)
-    winningLine = find ((nWins board ==) . LZ.length) pLines
+    winningLine = find ((nToWin board ==) . LZ.length) pLines
+    nToWin (AEmpty b)    = nWins'  b
+    nToWin (ABoard b)    = nWins   b
+    nToWin (AFinished b) = nWins'' b
 
 isValidPosition :: BoardShape -> Position -> Bool
 isValidPosition (BoardShape (nRows, nCols)) (Position r c) =
   1 <= r && r <= nRows && 1 <= c && c <= nCols
 
-nextMovePlayer :: Board a -> Player
-nextMovePlayer board = case moves board of
-  []    -> firstPlayer
-  (m:_) -> nextPlayer $ player m
+nextMovePlayer :: AnyBoard -> Player
+nextMovePlayer AEmpty{} = firstPlayer
+nextMovePlayer board = case board of
+  ABoard b    -> f $ moves b
+  AFinished b -> f $ moves'' b
+  where f []    = firstPlayer
+        f (m:_) = nextPlayer $ player m
 
 whoWon :: FinishedBoard -> Result
-whoWon board = case moves board of
+whoWon board = case moves'' board of
   (Move pos _:_) ->
-    case winningMove board pos of
+    case winningMove (AFinished board) pos of
       NoWin   -> Draw
       Win p _ -> Winner p
   [] -> error "not possible: no moves on finished board"
 
 
-playerAt :: Board a -> Position -> Field
-playerAt board position =
-  maybe FieldEmpty FieldOccupied
-  $ lookup position
-  $ map (\(Move pos pla) -> (pos, pla)) (moves board)
+playerAt :: AnyBoard -> Position -> Field
+playerAt board' position = case board' of
+  AEmpty{}    -> FieldEmpty
+  ABoard b    -> f $ moves b
+  AFinished b -> f $ moves'' b
+  where f ms = maybe FieldEmpty FieldOccupied
+               $ lookup position
+               $ map (\(Move pos pla) -> (pos, pla)) ms
 
 takeBack :: NonEmptyBoard -> PlayableBoard
 takeBack board = case board of
-  NEInPlayBoard b   -> takeBack' b
-  NEFinishedBoard b -> takeBack' b
-  where takeBack' b' =
-          let newMoves = drop 1 (moves b')
-              newBoard = b' { moves = newMoves }
+  NEInPlayBoard b   -> takeBack' (moves b)   (boardShape b)   (nWins b)
+  NEFinishedBoard b -> takeBack' (moves'' b) (boardShape'' b) (nWins'' b)
+  where takeBack' ms bs nw =
+          let newMoves = drop 1 ms
           in case newMoves of
-          [] -> PNewBoard newBoard
-          _  -> PInPlayBoard newBoard
+               [] -> PNewBoard NewBoard { boardShape' = bs, nWins' = nw }
+               _  -> PInPlayBoard Board { boardShape = bs, nWins = nw, moves = ms }
