@@ -1,8 +1,17 @@
-module TicTacToe where
+module TicTacToe
+       ( emptyBoard
+       , playerAt
+       , move
+       , whoWon
+       , takeBack
+       , Result(..)
+       , InvalidMoveErr(..)
+       , Player(..)
+       ) where
 
-import Data.List (find)
-import Data.Maybe (catMaybes)
-import ListZipper hiding (length)
+import           Data.List (find)
+import           Data.Maybe (catMaybes)
+import           ListZipper hiding (length)
 import qualified ListZipper as LZ
 
 data Player = X | O
@@ -22,17 +31,24 @@ type NewBoard = Board BEmpty
 type InPlayBoard = Board BInPlay
 type FinishedBoard = Board BFinished
 
+data PlayableBoard = PNewBoard NewBoard
+                   | PInPlayBoard InPlayBoard
+                   deriving (Show)
+
+data NonEmptyBoard = NEInPlayBoard InPlayBoard
+                   | NEFinishedBoard FinishedBoard
+                   deriving (Show)
+
 data Position = Position Int Int
               deriving (Eq, Ord, Show)
 
 data Move = Move Position Player
           deriving (Eq, Show)
 
-type PlayableBoard = Either NewBoard InPlayBoard
-type NonEmptyBoard = Either InPlayBoard FinishedBoard
-
-data InvalidMoveErr = InvalidMoveErr
-                      deriving (Show)
+data InvalidMoveErr = OutOfRangePosition
+                    | AlreadyOccupiedField
+                    | OtherPlayersTurn
+                    deriving (Show)
 
 newtype BoardShape = BoardShape (Int, Int)
                    deriving (Eq, Show)
@@ -53,8 +69,8 @@ data Direction
   | DiagonalBL
   | DiagonalUL
 
-emptyBoard :: Int -> Int -> Int -> NewBoard
-emptyBoard nRows nCols n =
+emptyBoard :: Int -> Int -> Int -> PlayableBoard
+emptyBoard nRows nCols n = PNewBoard
   Board { boardShape = BoardShape (nRows, nCols)
         , nWins      = n
         , moves      = []
@@ -63,16 +79,15 @@ emptyBoard nRows nCols n =
 move :: PlayableBoard
      -> Position
      -> Either InvalidMoveErr NonEmptyBoard
-move (Left b) pos = Right $ Left $ firstMove b pos
-move (Right b) pos = case playerAt b pos of
-  FieldOccupied _ -> Left InvalidMoveErr
-  FieldEmpty -> case winningMove newBoard pos of
-    NoWin   -> Right $ Left newBoard
-    Win _ _ -> Right $ Right newBoard
-  where newBoard = b { moves = Move pos thisPlayer : moves b }
-        thisPlayer = case moves b of
-          []    -> firstPlayer
-          (m:_) -> nextPlayer $ player m
+move (PNewBoard b)    pos =
+  Right $ NEInPlayBoard $ firstMove b pos
+move (PInPlayBoard b) pos =
+  case playerAt b pos of
+    FieldOccupied _ -> Left AlreadyOccupiedField
+    FieldEmpty -> case winningMove newBoard pos of
+      NoWin   -> Right $ NEInPlayBoard newBoard
+      Win _ _ -> Right $ NEFinishedBoard newBoard
+  where newBoard = b { moves = Move pos (nextMovePlayer b) : moves b }
 
 firstMove :: NewBoard -> Position -> InPlayBoard
 firstMove board pos = board { moves = [Move pos firstPlayer] }
@@ -100,11 +115,12 @@ linePositions bShape pos dir = ListZipper (l (-)) pos (l (+))
 line :: Board a -> Position -> Direction -> Maybe (ListZipper Position)
 line board pos dir =
   case focus l of
-    FieldEmpty           -> Nothing
-    FieldOccupied _ -> let sameLZ = sameAroundFocus l
-                           nLeft  = length $ lefts sameLZ
-                           nRight = length $ rights sameLZ
-                       in Just $ takeLeft nLeft $ takeRight nRight positions
+    FieldEmpty      -> Nothing
+    FieldOccupied _ ->
+      let sameLZ = sameAroundFocus l
+          nLeft  = length $ lefts sameLZ
+          nRight = length $ rights sameLZ
+      in Just $ takeLeft nLeft $ takeRight nRight positions
   where positions = linePositions (boardShape board) pos dir
         l = playerAt board <$> positions
 
@@ -129,10 +145,27 @@ nextMovePlayer board = case moves board of
   (m:_) -> nextPlayer $ player m
 
 whoWon :: FinishedBoard -> Result
-whoWon = error "whoWon not implemented"
+whoWon board = case moves board of
+  (Move pos _:_) ->
+    case winningMove board pos of
+      NoWin   -> Draw
+      Win p _ -> Winner p
+  [] -> error "not possible: no moves on finished board"
+
 
 playerAt :: Board a -> Position -> Field
 playerAt board position =
   maybe FieldEmpty FieldOccupied
   $ lookup position
   $ map (\(Move pos pla) -> (pos, pla)) (moves board)
+
+takeBack :: NonEmptyBoard -> PlayableBoard
+takeBack board = case board of
+  NEInPlayBoard b   -> takeBack' b
+  NEFinishedBoard b -> takeBack' b
+  where takeBack' b' =
+          let newMoves = drop 1 (moves b')
+              newBoard = b' { moves = newMoves }
+          in case newMoves of
+          [] -> PNewBoard newBoard
+          _  -> PInPlayBoard newBoard
